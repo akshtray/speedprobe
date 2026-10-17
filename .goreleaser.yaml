@@ -87,12 +87,17 @@ homebrew_casks:
     description: Multi-provider internet speed test CLI and TUI
     license: MIT
     binaries: [speedprobe]
-    hooks:
-      post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/speedprobe"]
-          end
+    # Homebrew deprecated `postflight` in favour of `postflight_steps`, and the
+    # GoReleaser option that emits the new stanza (hooks.post.install_steps)
+    # is only in the unreleased v2.19. Until then the stanza is injected via
+    # custom_block. The braces are escaped so GoReleaser's own templating
+    # passes them through to Homebrew untouched.
+    custom_block: |
+      postflight_steps do
+        on_macos do
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ "{{" }}staged_path{{ "}}" }}/speedprobe"]
+        end
+      end
     commit_author:
       name: goreleaser-bot
       email: bot@goreleaser.com
