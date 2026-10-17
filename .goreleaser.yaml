@@ -97,6 +97,9 @@ release:
     owner: akshtray
     name: speedprobe
   prerelease: auto
+  # Lets a re-run of the release job (e.g. after fixing the tap token)
+  # re-upload identical artifacts instead of failing on "already exists".
+  replace_existing_artifacts: true
   footer: |
     **Install:** `brew install akshtray/tap/speedprobe`, the `.deb`/`.rpm` below, or `go install github.com/akshtray/speedprobe/cmd/speedprobe@{{ .Tag }}`.
     The `checksums.txt` file is signed with Sigstore cosign (keyless); see the README for how to verify.
