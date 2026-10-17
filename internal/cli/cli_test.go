@@ -7,7 +7,9 @@ import (
 	"testing"
 
 	"github.com/akshtray/speedprobe/internal/provider/cloudflare"
+	"github.com/akshtray/speedprobe/internal/provider/fast"
 	"github.com/akshtray/speedprobe/internal/provider/mlab"
+	"github.com/akshtray/speedprobe/internal/provider/ookla"
 	"github.com/akshtray/speedprobe/internal/testserver"
 )
 
@@ -94,7 +96,7 @@ func TestRunBothProvidersAgainstTestServers(t *testing.T) {
 	t.Setenv(cloudflare.EnvBaseURL, cf.URL)
 	t.Setenv(mlab.EnvLocateURL, ml.URL+"/locate")
 
-	code, out, errOut := run(t, "run", "--all", "-d", "1", "-c", "2", "--pings", "3", "--json", "-q")
+	code, out, errOut := run(t, "run", "-p", "cf,mlab", "-d", "1", "-c", "2", "--pings", "3", "--json", "-q")
 	if code != ExitOK {
 		t.Fatalf("exit %d, stderr %q", code, errOut)
 	}
@@ -107,6 +109,37 @@ func TestRunBothProvidersAgainstTestServers(t *testing.T) {
 	}
 	if results[1]["ok"] != true || results[1]["download_mbps"].(float64) <= 0 {
 		t.Fatalf("mlab result: %v", results[1])
+	}
+}
+
+func TestUnsupportedMeasurementIsNotedNotFailed(t *testing.T) {
+	srv := testserver.Fast()
+	defer srv.Close()
+	t.Setenv(fast.EnvBaseURL, srv.URL)
+	t.Setenv(fast.EnvAPIURL, srv.URL+"/netflix/speedtest/v2")
+
+	code, out, _ := run(t, "run", "-p", "fast", "-t", "upload", "--json", "-q")
+	if code != ExitOK {
+		t.Fatalf("exit %d: %s", code, out)
+	}
+	var results []map[string]any
+	if err := json.Unmarshal([]byte(out), &results); err != nil || len(results) != 1 {
+		t.Fatalf("json: %v %s", err, out)
+	}
+	if results[0]["ok"] != true || results[0]["upload_mbps"] != nil || results[0]["note"] != "upload not supported by Fast.com (Netflix)" {
+		t.Fatalf("result = %v", results[0])
+	}
+}
+
+func TestMissingOoklaIsReportedNotRun(t *testing.T) {
+	t.Setenv(ookla.EnvBinary, "/nonexistent/speedtest")
+	code, out, _ := run(t, "run", "-p", "ookla", "--json", "-q")
+	if code != ExitFailed || !strings.Contains(out, "speedtest.net/apps/cli") {
+		t.Fatalf("exit %d out %s", code, out)
+	}
+	code, out, _ = run(t, "list")
+	if code != ExitOK || !strings.Contains(out, "ookla") || !strings.Contains(out, "install Ookla") || !strings.Contains(out, "experimental") {
+		t.Fatalf("list: %d %s", code, out)
 	}
 }
 

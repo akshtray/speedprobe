@@ -10,12 +10,16 @@ import (
 
 	"github.com/akshtray/speedprobe/internal/engine"
 	"github.com/akshtray/speedprobe/internal/provider/cloudflare"
+	"github.com/akshtray/speedprobe/internal/provider/fast"
 	"github.com/akshtray/speedprobe/internal/provider/mlab"
+	"github.com/akshtray/speedprobe/internal/provider/ookla"
 )
 
 // Config carries the provider-specific choices from the command line.
 type Config struct {
-	MLabServer int // index into M-Lab's nearest-first server list; 0 = closest
+	MLabServer         int  // index into M-Lab's nearest-first server list; 0 = closest
+	OoklaServerID      int  // pin an Ookla server; 0 = let the CLI choose
+	AcceptOoklaLicense bool // pass --accept-license --accept-gdpr to Ookla's CLI
 }
 
 // UsageError means the user asked for something that does not exist.
@@ -34,6 +38,8 @@ func New(version string, cfg Config) *Registry {
 	return &Registry{list: []engine.Provider{
 		cloudflare.New(client),
 		mlab.New(client, version, mlab.Config{ServerIndex: cfg.MLabServer}),
+		ookla.New(ookla.Config{ServerID: cfg.OoklaServerID, AcceptLicense: cfg.AcceptOoklaLicense}),
+		fast.New(client),
 	}}
 }
 

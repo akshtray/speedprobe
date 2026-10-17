@@ -16,11 +16,17 @@ func TestResolve(t *testing.T) {
 			t.Errorf("Resolve(%v) = %v, %v", tokens, ps, err)
 		}
 	}
-	for _, tokens := range [][]string{{"all"}, {"mlab,cf"}, {"ndt7", "1"}, {"2,1"}} {
+	for _, tokens := range [][]string{{"mlab,cf"}, {"ndt7", "1"}, {"2,1"}} {
 		ps, err := r.Resolve(tokens)
 		if err != nil || len(ps) != 2 {
 			t.Errorf("Resolve(%v) = %v, %v", tokens, ps, err)
 		}
+	}
+	if ps, err := r.Resolve([]string{"all"}); err != nil || len(ps) != 4 {
+		t.Errorf("all should give every provider, got %d %v", len(ps), err)
+	}
+	if ps, err := r.Resolve([]string{"speedtest", "netflix"}); err != nil || ps[0].Info().Name != "ookla" || ps[1].Info().Name != "fast" {
+		t.Errorf("aliases: %v %v", ps, err)
 	}
 	if ps, _ := r.Resolve([]string{"mlab,cf"}); ps[0].Info().Name != "mlab" {
 		t.Errorf("order must follow the command line, got %s first", ps[0].Info().Name)

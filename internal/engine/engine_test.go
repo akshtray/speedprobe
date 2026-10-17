@@ -155,6 +155,7 @@ type fakeProvider struct {
 	info  Info
 	avail bool
 	ran   int
+	got   Options
 }
 
 func (f *fakeProvider) Info() Info { return f.info }
@@ -166,13 +167,33 @@ func (f *fakeProvider) Available() (bool, string) {
 }
 func (f *fakeProvider) Run(ctx Context, opts Options, sink Sink) *Result {
 	f.ran++
+	f.got = opts
 	r := NewResult(f.info.Name)
 	r.DownloadMbps = F(1)
+	r.Note = "own note"
 	return r
 }
 
+func TestRunAllNarrowsToCapabilities(t *testing.T) {
+	a := &fakeProvider{info: Info{Name: "a", Title: "A", Capabilities: []Measurement{Latency}}, avail: true}
+	results := RunAll(context.Background(), []Provider{a}, DefaultOptions(), nil)
+	if a.ran != 1 || len(a.got.Measurements) != 1 || a.got.Measurements[0] != Latency {
+		t.Fatalf("provider should only be asked for latency, got %v", a.got.Measurements)
+	}
+	if results[0].Note != "own note; download/upload not supported by A" || !results[0].OK {
+		t.Fatalf("note = %q ok = %v", results[0].Note, results[0].OK)
+	}
+	// Nothing supported at all: no run, empty successful result with a note.
+	opts := DefaultOptions()
+	opts.Measurements = []Measurement{Upload}
+	results = RunAll(context.Background(), []Provider{a}, opts, nil)
+	if a.ran != 1 || !results[0].OK || results[0].Note != "upload not supported by A" || results[0].DownloadMbps != nil {
+		t.Fatalf("unsupported-only: ran=%d result=%+v", a.ran, results[0])
+	}
+}
+
 func TestRunAllIsSequentialAndSkipsUnavailable(t *testing.T) {
-	a := &fakeProvider{info: Info{Name: "a", Title: "A"}, avail: true}
+	a := &fakeProvider{info: Info{Name: "a", Title: "A", Capabilities: AllMeasurements}, avail: true}
 	b := &fakeProvider{info: Info{Name: "b", Title: "B"}}
 	var order []EventKind
 	results := RunAll(context.Background(), []Provider{a, b}, DefaultOptions(), func(e Event) { order = append(order, e.Kind) })

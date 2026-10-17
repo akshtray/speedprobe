@@ -88,6 +88,8 @@ type runFlags struct {
 	interval     float64
 	quiet        bool
 	mlabServer   int
+	ooklaServer  int
+	ooklaLicense bool
 }
 
 func (a *App) rootCommand() *cobra.Command {
@@ -168,6 +170,8 @@ func (a *App) runCommand() *cobra.Command {
 	fl.Float64Var(&f.interval, "interval", 300, "seconds between rounds")
 	fl.BoolVarP(&f.quiet, "quiet", "q", false, "no progress output on stderr")
 	fl.IntVar(&f.mlabServer, "mlab-server", 0, "index into M-Lab's nearest-server list (0 = closest)")
+	fl.IntVar(&f.ooklaServer, "ookla-server-id", 0, "pin an Ookla server (see `speedtest -L`)")
+	fl.BoolVar(&f.ooklaLicense, "accept-ookla-license", false, "pass --accept-license --accept-gdpr to Ookla's binary")
 	return cmd
 }
 
@@ -183,7 +187,11 @@ func (a *App) listCommand() *cobra.Command {
 }
 
 func (a *App) execute(ctx context.Context, f runFlags) error {
-	reg := provider.New(a.Version, provider.Config{MLabServer: f.mlabServer})
+	reg := provider.New(a.Version, provider.Config{
+		MLabServer:         f.mlabServer,
+		OoklaServerID:      f.ooklaServer,
+		AcceptOoklaLicense: f.ooklaLicense,
+	})
 	tokens := f.providers
 	if f.all {
 		tokens = append([]string{"all"}, tokens...)
