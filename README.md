@@ -1,5 +1,9 @@
 # speedprobe
 
+> **Go rewrite in progress.** The Python prototype below still works and is the behavioural reference. The Go version lives in `cmd/` and `internal/`; run it with `go run ./cmd/speedprobe`. The first Go release will be `v0.2.0`. Decisions are in [docs/adr/](docs/adr/), vocabulary in [CONTEXT.md](CONTEXT.md).
+>
+> Why this exists: Ookla's own install script fails on current Ubuntu (24.04) because their apt repository does not publish it, and every other speed-test CLI measures against exactly one vendor.
+
 One CLI for internet speed tests across several providers, with an interactive picker for ad-hoc use and flags + JSON for scripting.
 
 | Provider | How it runs | Measures |

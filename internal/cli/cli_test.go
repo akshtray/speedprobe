@@ -1,0 +1,90 @@
+package cli
+
+import (
+	"bytes"
+	"encoding/json"
+	"strings"
+	"testing"
+
+	"github.com/akshtray/speedprobe/internal/provider/cloudflare"
+	"github.com/akshtray/speedprobe/internal/testserver"
+)
+
+func run(t *testing.T, args ...string) (int, string, string) {
+	t.Helper()
+	var out, errb bytes.Buffer
+	code := Main("test", args, &out, &errb)
+	return code, out.String(), errb.String()
+}
+
+func TestRunJSONAgainstTestServer(t *testing.T) {
+	srv := testserver.Cloudflare()
+	defer srv.Close()
+	t.Setenv(cloudflare.EnvBaseURL, srv.URL)
+
+	code, out, errOut := run(t, "run", "-p", "cf", "-d", "1", "-c", "2", "--pings", "3", "--json", "-q")
+	if code != ExitOK {
+		t.Fatalf("exit %d, stderr %q", code, errOut)
+	}
+	if errOut != "" {
+		t.Errorf("quiet run wrote to stderr: %q", errOut)
+	}
+	var results []map[string]any
+	if err := json.Unmarshal([]byte(out), &results); err != nil {
+		t.Fatalf("stdout is not JSON: %v\n%s", err, out)
+	}
+	if len(results) != 1 || results[0]["provider"] != "cloudflare" || results[0]["ok"] != true {
+		t.Fatalf("results = %v", results)
+	}
+	if results[0]["download_mbps"].(float64) <= 0 || results[0]["schema"].(float64) != 1 {
+		t.Fatalf("results = %v", results)
+	}
+}
+
+func TestRunTableAndMeasurementSubset(t *testing.T) {
+	srv := testserver.Cloudflare()
+	defer srv.Close()
+	t.Setenv(cloudflare.EnvBaseURL, srv.URL)
+
+	code, out, errOut := run(t, "run", "-t", "latency", "--pings", "3")
+	if code != ExitOK {
+		t.Fatalf("exit %d: %s", code, errOut)
+	}
+	if !strings.Contains(out, "Cloudflare SEA") || !strings.Contains(out, "DOWNLOAD") {
+		t.Fatalf("table:\n%s", out)
+	}
+	if !strings.Contains(errOut, "✓ Cloudflare") {
+		t.Fatalf("stderr: %q", errOut)
+	}
+}
+
+func TestFailedProviderExitsOne(t *testing.T) {
+	t.Setenv(cloudflare.EnvBaseURL, "http://127.0.0.1:1")
+	code, out, _ := run(t, "run", "--json", "-q", "-d", "0.2", "--pings", "2")
+	if code != ExitFailed {
+		t.Fatalf("exit %d, want 1", code)
+	}
+	if !strings.Contains(out, `"ok": false`) {
+		t.Fatalf("stdout: %s", out)
+	}
+}
+
+func TestUsageErrors(t *testing.T) {
+	for _, args := range [][]string{{"run", "-p", "nope"}, {"run", "-t", "ping"}, {"run", "--bogus"}, {"bogus"}} {
+		code, _, errOut := run(t, args...)
+		if code != ExitUsage || !strings.HasPrefix(errOut, "speedprobe: ") {
+			t.Errorf("%v: exit %d stderr %q", args, code, errOut)
+		}
+	}
+}
+
+func TestListAndVersion(t *testing.T) {
+	code, out, _ := run(t, "list")
+	if code != ExitOK || !strings.Contains(out, "cloudflare") || !strings.Contains(out, "cf") {
+		t.Fatalf("list: %d %q", code, out)
+	}
+	code, out, _ = run(t, "--version")
+	if code != ExitOK || strings.TrimSpace(out) != "speedprobe test" {
+		t.Fatalf("version: %d %q", code, out)
+	}
+}
