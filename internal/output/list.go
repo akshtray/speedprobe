@@ -10,7 +10,7 @@ import (
 )
 
 // ProviderList writes the provider table shown by `speedprobe list`.
-func ProviderList(w io.Writer, providers []engine.Provider) {
+func ProviderList(w io.Writer, providers []engine.Provider) error {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(tw, "NAME\tALIASES\tTYPE\tSTATUS\tMEASURES")
 	var notes []string
@@ -26,8 +26,11 @@ func ProviderList(w io.Writer, providers []engine.Provider) {
 			notes = append(notes, info.Name+": "+info.DataPolicy)
 		}
 	}
-	tw.Flush()
+	if err := tw.Flush(); err != nil {
+		return err
+	}
 	for _, n := range notes {
 		fmt.Fprintln(w, "\n"+n)
 	}
+	return nil
 }

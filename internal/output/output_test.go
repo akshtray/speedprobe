@@ -28,7 +28,9 @@ func TestTable(t *testing.T) {
 	r.DownloadMbps, r.UploadMbps = engine.F(812.5), engine.F(1234.5)
 	bad := engine.Failed("other", "timed out")
 	var buf bytes.Buffer
-	Table(&buf, []*engine.Result{r, bad}, func(s string) string { return strings.ToUpper(s[:1]) + s[1:] }, time.Date(2026, 10, 16, 16, 30, 0, 0, time.UTC))
+	if err := Table(&buf, []*engine.Result{r, bad}, func(s string) string { return strings.ToUpper(s[:1]) + s[1:] }, time.Date(2026, 10, 16, 16, 30, 0, 0, time.UTC)); err != nil {
+		t.Fatal(err)
+	}
 	out := buf.String()
 	for _, want := range []string{"speedprobe · 2026-10-16 16:30 UTC", "Cloudflare", "Cloudflare SEA", "12.3 ms", "45 / — ms", "812.5 Mbps", "1,234.5 Mbps", "Other", "timed out"} {
 		if !strings.Contains(out, want) {

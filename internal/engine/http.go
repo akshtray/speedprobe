@@ -68,25 +68,25 @@ func HTTPDownload(client *http.Client, urlFor func(i int) string) Worker {
 				return err
 			}
 			if err := CheckStatus(resp); err != nil {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 				return err
 			}
 			for {
 				n, err := resp.Body.Read(buf)
 				m.Add(n)
 				if time.Now().After(deadline) {
-					resp.Body.Close() // mid-body close discards the connection; that is the point
+					_ = resp.Body.Close() // mid-body close discards the connection; that is the point
 					return nil
 				}
 				if err == io.EOF {
 					break
 				}
 				if err != nil {
-					resp.Body.Close()
+					_ = resp.Body.Close()
 					return err
 				}
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 		return nil
 	}
@@ -143,7 +143,7 @@ func HTTPUpload(client *http.Client, urlFor func(i, size int) string, uo UploadO
 				return err
 			}
 			_, _ = io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if err := CheckStatus(resp); err != nil {
 				return err
 			}

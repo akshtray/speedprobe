@@ -3,6 +3,11 @@
 version: 2
 project_name: speedprobe
 
+git:
+  # The Python prototype is tagged outside semver; releases start at v0.2.0.
+  ignore_tags:
+    - python-v0.1.0
+
 builds:
   - main: ./cmd/speedprobe
     binary: speedprobe

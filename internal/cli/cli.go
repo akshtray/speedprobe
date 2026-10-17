@@ -145,8 +145,7 @@ func (a *App) listCommand() *cobra.Command {
 		Short: "Show providers and whether each is usable on this machine",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			output.ProviderList(a.Stdout, a.reg.All())
-			return nil
+			return output.ProviderList(a.Stdout, a.reg.All())
 		},
 	}
 }
@@ -182,8 +181,8 @@ func (a *App) execute(ctx context.Context, f runFlags) error {
 			if err := output.JSON(a.Stdout, results, f.repeat == 1); err != nil {
 				return err
 			}
-		} else {
-			output.Table(a.Stdout, results, a.reg.Title, time.Now())
+		} else if err := output.Table(a.Stdout, results, a.reg.Title, time.Now()); err != nil {
+			return err
 		}
 		if f.log != "" {
 			if err := output.AppendLog(f.log, results); err != nil {

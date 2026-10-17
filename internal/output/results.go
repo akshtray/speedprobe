@@ -14,7 +14,7 @@ import (
 
 // Table writes the results as an aligned table. title maps provider names to
 // display names.
-func Table(w io.Writer, results []*engine.Result, title func(string) string, now time.Time) {
+func Table(w io.Writer, results []*engine.Result, title func(string) string, now time.Time) error {
 	fmt.Fprintf(w, "speedprobe · %s\n\n", now.Format("2006-01-02 15:04 MST"))
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(tw, "PROVIDER\tSERVER\tPING\tJITTER\tLOADED ↓ / ↑\tDOWNLOAD\tUPLOAD\tNOTES")
@@ -44,7 +44,7 @@ func Table(w io.Writer, results []*engine.Result, title func(string) string, now
 			title(r.Provider), server, fmtUnit(r.LatencyMs, "ms"), fmtUnit(r.JitterMs, "ms"), loaded,
 			fmtUnit(r.DownloadMbps, "Mbps"), fmtUnit(r.UploadMbps, "Mbps"), strings.Join(notes, "; "))
 	}
-	tw.Flush()
+	return tw.Flush()
 }
 
 func fmtInt(v *float64) string {
@@ -99,12 +99,12 @@ func AppendLog(path string, results []*engine.Result) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 	enc := json.NewEncoder(f)
 	for _, r := range results {
 		if err := enc.Encode(r); err != nil {
+			_ = f.Close()
 			return err
 		}
 	}
-	return nil
+	return f.Close()
 }

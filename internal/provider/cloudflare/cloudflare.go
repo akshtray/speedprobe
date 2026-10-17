@@ -74,7 +74,7 @@ func (c *Cloudflare) probe(ctx context.Context) (float64, error) {
 		return 0, err
 	}
 	_, _ = io.Copy(io.Discard, resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	ms := float64(time.Since(t).Microseconds()) / 1000
 	if err := engine.CheckStatus(resp); err != nil {
 		return 0, err
@@ -123,7 +123,7 @@ func (c *Cloudflare) meta(ctx context.Context, res *engine.Result) bool {
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		_, _ = io.Copy(io.Discard, resp.Body)
 		return false
@@ -165,7 +165,7 @@ func (c *Cloudflare) trace(ctx context.Context, res *engine.Result) {
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		_, _ = io.Copy(io.Discard, resp.Body)
 		return
