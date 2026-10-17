@@ -18,6 +18,7 @@ import (
 	"github.com/akshtray/speedprobe/internal/engine"
 	"github.com/akshtray/speedprobe/internal/output"
 	"github.com/akshtray/speedprobe/internal/provider"
+	"github.com/akshtray/speedprobe/internal/tui"
 )
 
 // Exit codes.
@@ -99,13 +100,44 @@ func (a *App) rootCommand() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if a.interactive() {
+				return a.tui(cmd.Context())
+			}
 			return a.execute(cmd.Context(), runFlags{measurements: "all", duration: 10, connections: 6, pings: 20, repeat: 1, interval: 300})
 		},
 	}
 	root.SetVersionTemplate("speedprobe {{.Version}}\n")
 	root.CompletionOptions.HiddenDefaultCmd = true
-	root.AddCommand(a.runCommand(), a.listCommand())
+	root.AddCommand(a.runCommand(), a.listCommand(), a.tuiCommand())
 	return root
+}
+
+// interactive reports whether both stdin and stdout are terminals.
+func (a *App) interactive() bool {
+	return output.IsTerminal(a.Stdout) && output.IsTerminal(os.Stdin)
+}
+
+func (a *App) tuiCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "tui",
+		Short: "Open the interactive dashboard (the default on a terminal)",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !a.interactive() {
+				fmt.Fprintln(a.Stderr, "speedprobe: the TUI needs an interactive terminal; use `speedprobe run` instead")
+				return exitCode(ExitUsage)
+			}
+			return a.tui(cmd.Context())
+		},
+	}
+}
+
+func (a *App) tui(ctx context.Context) error {
+	return tui.Run(ctx, tui.Options{
+		Version:  a.Version,
+		Registry: provider.New(a.Version, provider.Config{}),
+		Output:   a.Stdout,
+	})
 }
 
 func (a *App) runCommand() *cobra.Command {

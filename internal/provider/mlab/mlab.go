@@ -206,7 +206,9 @@ func (m *MLab) direction(ctx context.Context, kind spec.TestKind, targets []v2.T
 						st.minRTT = append(st.minRTT, float64(tcp.MinRTT)/1000)
 					}
 					if tcp.RTT > 0 {
-						st.rtt = append(st.rtt, float64(tcp.RTT)/1000)
+						ms := float64(tcp.RTT) / 1000
+						st.rtt = append(st.rtt, ms)
+						sink.Emit(engine.Event{Kind: engine.LatencySample, Provider: info.Name, Title: info.Title, Phase: phase, Ms: ms})
 					}
 					if tcp.RTTVar > 0 {
 						st.rttVar = append(st.rttVar, float64(tcp.RTTVar)/1000)

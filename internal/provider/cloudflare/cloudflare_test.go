@@ -25,7 +25,9 @@ func TestRunAgainstTestServer(t *testing.T) {
 	sink := engine.Sink(func(e engine.Event) {
 		switch e.Kind {
 		case engine.LatencySample:
-			latencySamples++
+			if e.Phase == engine.Latency {
+				latencySamples++
+			}
 		case engine.ThroughputSample:
 			throughput++
 		}

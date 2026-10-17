@@ -17,7 +17,9 @@ const tick = 250 * time.Millisecond
 
 // Transfer runs opts.Connections workers for opts.Duration and returns the
 // steady-state rate in Mbps plus the median loaded latency, if a probe was
-// given. Progress goes to sink as ThroughputSample events for phase.
+// given. Progress goes to sink as ThroughputSample events for phase, and each
+// loaded-latency probe as a LatencySample whose Phase is the transfer phase
+// (idle samples carry Phase == Latency).
 //
 // Workers are given the deadline, not a cancelled context, so an upload in
 // flight at the deadline finishes and is counted, as in the prototype.
@@ -47,6 +49,7 @@ func Transfer(ctx context.Context, phase Measurement, provider, title string, w 
 			for {
 				if ms, err := probe(side); err == nil {
 					loaded = append(loaded, ms)
+					sink.Emit(Event{Kind: LatencySample, Provider: provider, Title: title, Phase: phase, Ms: ms})
 				}
 				select {
 				case <-side.Done():

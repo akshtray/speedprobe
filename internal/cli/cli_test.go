@@ -70,6 +70,13 @@ func TestFailedProviderExitsOne(t *testing.T) {
 	}
 }
 
+func TestTUIRefusesWithoutTerminal(t *testing.T) {
+	code, _, errOut := run(t, "tui")
+	if code != ExitUsage || !strings.Contains(errOut, "interactive terminal") {
+		t.Fatalf("tui without a terminal: exit %d stderr %q", code, errOut)
+	}
+}
+
 func TestUsageErrors(t *testing.T) {
 	for _, args := range [][]string{{"run", "-p", "nope"}, {"run", "-t", "ping"}, {"run", "--bogus"}, {"bogus"}} {
 		code, _, errOut := run(t, args...)

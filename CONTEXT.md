@@ -51,3 +51,21 @@ _Avoid_: external, plugin
 **Experimental provider**:
 A provider that depends on an undocumented interface its operator could change without notice. Fast.com is the only one. Its results are real but its continued operation is not promised.
 _Avoid_: unofficial, beta, unstable
+
+## Screens
+
+**Setup**:
+The first screen of the interactive session, where the user picks providers, measurements and settings for the next run. Settings last for the session only.
+_Avoid_: picker, wizard, menu
+
+**Dashboard**:
+The live screen shown while a session runs: one panel per provider with the current measurement, live throughput and latency, and latency under load.
+_Avoid_: progress screen, monitor
+
+**Panel**:
+The dashboard's view of one provider's run.
+_Avoid_: card, tile, widget
+
+**Results**:
+The screen shown when the session's runs are over: the comparison table, with ways to run again, return to setup, or take the JSON away.
+_Avoid_: summary, report

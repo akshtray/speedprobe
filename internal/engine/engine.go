@@ -86,7 +86,7 @@ type EventKind int
 const (
 	RunStarted       EventKind = iota // a provider's run has begun
 	PhaseStarted                      // a measurement has begun
-	LatencySample                     // one idle latency sample; Index/Total/Ms set
+	LatencySample                     // one latency sample; Ms set. Phase == Latency with Index/Total for idle samples, else the transfer phase it was taken under
 	ThroughputSample                  // live rate during a transfer; Phase/Mbps set
 	PhaseFinished                     // a measurement has ended
 	RunFinished                       // the run is over; Result set

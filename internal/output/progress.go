@@ -50,7 +50,9 @@ func (p *Progress) Handle(e engine.Event) {
 	case engine.Status:
 		p.status(e.Title + " " + e.Message)
 	case engine.LatencySample:
-		p.status(fmt.Sprintf("%s latency %d/%d  %.1f ms", e.Title, e.Index, e.Total, e.Ms))
+		if e.Phase == engine.Latency { // loaded-latency samples are for the dashboard
+			p.status(fmt.Sprintf("%s latency %d/%d  %.1f ms", e.Title, e.Index, e.Total, e.Ms))
+		}
 	case engine.ThroughputSample:
 		p.status(fmt.Sprintf("%s %s %9.1f Mbps", e.Title, e.Phase, e.Mbps))
 	case engine.RunFinished:
