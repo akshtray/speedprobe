@@ -27,6 +27,15 @@ From `v0.2.0` on, each [release](https://github.com/akshtray/speedprobe/releases
 brew install akshtray/tap/speedprobe
 ```
 
+To verify a download, check `checksums.txt` against the archive and the Sigstore signature on the checksums file:
+
+```bash
+sha256sum --check --ignore-missing checksums.txt
+cosign verify-blob --certificate checksums.txt.pem --signature checksums.txt.sig \
+  --certificate-identity-regexp 'github.com/akshtray/speedprobe' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com checksums.txt
+```
+
 Optional, for the Ookla provider: install their CLI from <https://www.speedtest.net/apps/cli>. On Ubuntu 24.04 use the standalone tarball from <https://install.speedtest.net/app/cli/>, since their apt repository has no `noble` release. Run `speedtest` once to accept Ookla's license, or pass `--accept-ookla-license`.
 
 ## Usage

@@ -1,5 +1,6 @@
-# Milestone 5 adds Homebrew, deb/rpm and cosign. This is enough for the CI
-# snapshot build to prove the matrix compiles.
+# Release pipeline. A pushed tag matching v* runs .github/workflows/release.yml,
+# which invokes `goreleaser release`. Every PR runs `goreleaser release
+# --snapshot` so a broken config is caught before a tag exists.
 version: 2
 project_name: speedprobe
 
@@ -8,13 +9,20 @@ git:
   ignore_tags:
     - python-v0.1.0
 
+before:
+  hooks:
+    - go mod tidy
+
 builds:
   - main: ./cmd/speedprobe
     binary: speedprobe
     env:
       - CGO_ENABLED=0
+    flags:
+      - -trimpath
     ldflags:
       - -s -w -X main.version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
     goos: [linux, darwin, windows, freebsd]
     goarch: [amd64, arm64, arm]
     goarm: ["7"]
@@ -35,11 +43,78 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# Keyless signing of the checksums file via Sigstore. Verify with:
+#   cosign verify-blob --certificate checksums.txt.pem --signature checksums.txt.sig \
+#     --certificate-identity-regexp 'github.com/akshtray/speedprobe' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com checksums.txt
+signs:
+  - cmd: cosign
+    certificate: "${artifact}.pem"
+    args:
+      - sign-blob
+      - "--output-certificate=${certificate}"
+      - "--output-signature=${signature}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: checksum
+
+nfpms:
+  - package_name: speedprobe
+    vendor: akshtray
+    homepage: https://github.com/akshtray/speedprobe
+    maintainer: akshtray <akshtray@users.noreply.github.com>
+    description: Multi-provider internet speed test CLI and TUI
+    license: MIT
+    formats: [deb, rpm]
+    bindir: /usr/bin
+    section: net
+
+# Homebrew tap, for macOS and Linux (Linuxbrew installs casks too). The
+# binary is not notarized (see the design notes), so the hook clears the
+# quarantine flag that Gatekeeper would otherwise trip on.
+homebrew_casks:
+  - name: speedprobe
+    repository:
+      owner: akshtray
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: https://github.com/akshtray/speedprobe
+    description: Multi-provider internet speed test CLI and TUI
+    license: MIT
+    binaries: [speedprobe]
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/speedprobe"]
+          end
+    commit_author:
+      name: goreleaser-bot
+      email: bot@goreleaser.com
+
+release:
+  github:
+    owner: akshtray
+    name: speedprobe
+  prerelease: auto
+  footer: |
+    **Install:** `brew install akshtray/tap/speedprobe`, the `.deb`/`.rpm` below, or `go install github.com/akshtray/speedprobe/cmd/speedprobe@{{ .Tag }}`.
+    The `checksums.txt` file is signed with Sigstore cosign (keyless); see the README for how to verify.
+
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
 changelog:
   use: github
   sort: asc
+  groups:
+    - title: Features
+      regexp: '^feat'
+      order: 0
+    - title: Fixes
+      regexp: '^fix'
+      order: 1
+    - title: Other
+      order: 999
   filters:
     exclude: ["^chore", "^ci", "^docs", "^test"]

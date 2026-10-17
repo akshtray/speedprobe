@@ -27,3 +27,16 @@ Set `SPEEDPROBE_CLOUDFLARE_URL` to point a run at a local server (see `internal/
 ## Reporting a provider breakage
 
 Use the "A provider stopped working" issue template and include `--json` output. Fast.com relies on an undocumented API and will break occasionally; those reports are still welcome.
+
+## Releasing (maintainers)
+
+Releases are cut by pushing a semver tag; `.github/workflows/release.yml` runs GoReleaser, which builds every target, signs `checksums.txt` with Sigstore, attaches `.deb`/`.rpm` packages, and pushes the cask to `akshtray/homebrew-tap`.
+
+One-time setup (a fine-grained token for the tap, stored as the `HOMEBREW_TAP_TOKEN` secret) is walked through by `scripts/release-setup.sh`. Then:
+
+```bash
+git tag -a v0.3.0 -m "speedprobe v0.3.0"
+git push origin v0.3.0
+```
+
+Every pull request runs `goreleaser release --snapshot`, so a broken release config fails before a tag exists.

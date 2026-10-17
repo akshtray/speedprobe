@@ -47,5 +47,5 @@ jobs:
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"
-          args: release --snapshot --clean
+          args: release --snapshot --clean --skip=sign
       - run: ./dist/speedprobe_linux_amd64_v1/speedprobe --version
