@@ -1,0 +1,37 @@
+name: A provider stopped working
+description: speedprobe fails or reports wrong numbers for one provider
+labels: [provider]
+body:
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      options: [cloudflare, mlab, fast, ookla]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: speedprobe version
+      description: Output of `speedprobe --version`
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and architecture
+      placeholder: Ubuntu 24.04 amd64, macOS 15 arm64, Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: JSON output
+      description: Paste the output of `speedprobe run -p <provider> --json`. Remove `clientIp` if you prefer.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?

@@ -1,0 +1,25 @@
+# Runs the real providers. Never on pull requests: it is slow, flaky by
+# nature, and spends the providers' bandwidth.
+name: live
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - run: go build -o speedprobe ./cmd/speedprobe
+      - name: Cloudflare
+        run: |
+          ./speedprobe run -p cloudflare -d 3 -c 2 --pings 5 --json -q | tee cf.json
+          jq -e '.[0].ok and .[0].download_mbps > 0 and .[0].upload_mbps > 0 and .[0].latency_ms > 0' cf.json
