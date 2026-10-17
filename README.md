@@ -1,96 +1,102 @@
 # speedprobe
 
-> **Go rewrite in progress.** The Python prototype below still works and is the behavioural reference. The Go version lives in `cmd/` and `internal/`; run it with `go run ./cmd/speedprobe`. The first Go release will be `v0.2.0`. Decisions are in [docs/adr/](docs/adr/), vocabulary in [CONTEXT.md](CONTEXT.md).
->
-> Why this exists: Ookla's own install script fails on current Ubuntu (24.04) because their apt repository does not publish it, and every other speed-test CLI measures against exactly one vendor.
+One tool that measures your internet connection against several independent speed-test providers, so you can compare them instead of trusting one vendor. A single static binary for Linux, macOS and Windows, with an interactive dashboard for people and flags plus JSON for scripts.
 
-One CLI for internet speed tests across several providers, with an interactive picker for ad-hoc use and flags + JSON for scripting.
+Why it exists: Ookla's own install script fails on current Ubuntu (24.04) because their apt repository does not publish it, the Python `speedtest-cli` package has been unmaintained since 2021, and every other speed-test CLI measures against exactly one vendor.
 
-| Provider | How it runs | Measures |
+| Provider | How | Measures |
 |---|---|---|
-| `cloudflare` (`cf`) | Native HTTP against `speed.cloudflare.com/__down` and `/__up` | idle latency, jitter, loaded latency (bufferbloat), down, up |
-| `fast` (`netflix`) | Native — scrapes fast.com's API token, then pulls from Netflix Open Connect caches | latency, jitter, loaded latency, down; upload is best-effort |
-| `mlab` (`ndt7`) | Native ndt7 over WebSocket via `locate.measurementlab.net` | min RTT, RTT variance, loaded RTT (server TCP_INFO), down, up |
-| `ookla` (`speedtest`) | Wraps the official Ookla `speedtest` binary (or python `speedtest-cli` if that's what's on PATH) | latency, jitter, loaded latency, packet loss, down, up, result URL |
-| `testmy` | Opens testmy.net in your browser — it has no public test API | — |
+| `cloudflare` (`cf`) | Native HTTP against `speed.cloudflare.com` | idle latency, jitter, loaded latency (bufferbloat), download, upload |
+| `mlab` (`ndt7`) | Native ndt7 via M-Lab's official client; nearest server from the Locate API | min RTT, RTT variance, loaded RTT (server TCP_INFO), download, upload |
+| `ookla` (`speedtest`) | Wraps Ookla's official `speedtest` binary, which you install separately | latency, jitter, loaded latency, packet loss, download, upload, result URL |
+| `fast` (`netflix`), experimental | Native HTTP against Netflix Open Connect caches via fast.com's undocumented API | latency, jitter, loaded latency, download |
+
+**Data policy:** M-Lab publishes every test, including your IP address, as an open dataset ([their privacy page](https://www.measurementlab.net/privacy/)). Ookla stores results on speedtest.net. speedprobe itself makes no network connections other than to the providers you select: no update checks, no telemetry.
 
 ## Install
 
-Needs Python 3.10+. Pick one:
+The first release will be `v0.2.0`. Until then, build from source:
 
 ```bash
-# Run directly; uv reads the inline deps from the script header
-uv run speedprobe.py
-
-# Or install as a command on PATH
-uv tool install .        # or: pipx install .
-speedprobe --version
+go install github.com/akshtray/speedprobe/cmd/speedprobe@latest
 ```
 
-Optional, for the Ookla provider:
+From `v0.2.0` on, each [release](https://github.com/akshtray/speedprobe/releases) also ships archives with checksums and signatures for Linux, macOS and Windows on amd64 and arm64, plus `.deb` and `.rpm` packages, and a Homebrew tap:
 
 ```bash
-brew install teamookla/speedtest/speedtest     # macOS
-# Linux/Windows: https://www.speedtest.net/apps/cli
-speedtest                                      # run once to accept Ookla's license
+brew install akshtray/tap/speedprobe
 ```
+
+Optional, for the Ookla provider: install their CLI from <https://www.speedtest.net/apps/cli>. On Ubuntu 24.04 use the standalone tarball from <https://install.speedtest.net/app/cli/>, since their apt repository has no `noble` release. Run `speedtest` once to accept Ookla's license, or pass `--accept-ookla-license`.
 
 ## Usage
 
 ```bash
-speedprobe                         # interactive: pick providers, tests, duration
-speedprobe list                    # providers + whether each is usable on this machine
-speedprobe run                     # Cloudflare, all tests
-speedprobe run -p cf,mlab,fast     # several providers, run one after another
-speedprobe run --all               # every CLI-capable provider (skips testmy)
-speedprobe run -p cf -t download   # subset of: latency,download,upload
-speedprobe run -p cf -d 20 -c 8    # 20s per direction, 8 parallel streams
+speedprobe                          # interactive dashboard (on a terminal)
+speedprobe list                     # providers and whether each is usable here
+speedprobe run                      # Cloudflare, all measurements, plain output
+speedprobe run -p cf,mlab,ookla     # several providers, one after another
+speedprobe run --all                # every provider
+speedprobe run -p cf -t download    # subset of latency,download,upload
+speedprobe run -p cf -d 20 -c 8     # 20 s per direction, 8 parallel streams
+speedprobe run -p mlab --mlab-server 1          # second-closest M-Lab server
 speedprobe run -p ookla --ookla-server-id 12345 --accept-ookla-license
-speedprobe run -p mlab --mlab-server 1   # second-closest M-Lab server
 ```
 
-### Scripting / monitoring
+The dashboard opens when both stdin and stdout are a terminal. `speedprobe run` never opens it, so cron jobs are safe, and a piped bare `speedprobe` behaves like `run`.
+
+### Scripting
 
 ```bash
-export LOG=~/speedprobe.jsonl
-export INTERVAL=900
-
-# JSON to stdout (floats rounded to 2 dp); exit code 1 if any provider failed
+# JSON to stdout; exit code 1 if any provider failed
 speedprobe run -p cf,mlab --json -q | jq '.[] | {provider, download_mbps, upload_mbps}'
 
-# Run every $INTERVAL seconds until Ctrl-C, appending one JSON line per result
-speedprobe run -p cf --repeat 0 --interval $INTERVAL --log $LOG -q
+# Every 15 minutes until Ctrl-C, one JSON line per result appended to a log
+speedprobe run -p cf --repeat 0 --interval 900 --log ~/speedprobe.jsonl -q
 
-# Then look at the history
-jq -r '[.timestamp, .provider, .download_mbps, .upload_mbps, .loaded_latency_down_ms] | @tsv' $LOG
+jq -r '[.timestamp, .provider, .download_mbps, .upload_mbps, .loaded_latency_down_ms] | @tsv' ~/speedprobe.jsonl
 ```
 
-Progress goes to stderr and results to stdout, so piping works cleanly.
+Progress goes to stderr and results to stdout. Exit codes: 0 success, 1 at least one provider failed, 2 usage error, 130 interrupted.
+
+### JSON
+
+Each result is one object with these fields, always present, `null` when not measured:
+
+`provider`, `ok`, `server`, `latency_ms`, `jitter_ms`, `loaded_latency_down_ms`, `loaded_latency_up_ms`, `download_mbps`, `upload_mbps`, `packet_loss_pct`, `note`, `error`, `extra`, `timestamp`, `schema`
+
+Floats are rounded to two decimals. `extra` holds provider-specific details (Cloudflare colo and client IP, M-Lab candidate servers and test UUID, Ookla ISP and result URL). Within a major version fields are only ever added, never renamed or removed; `schema` is bumped if that promise is broken.
 
 ## How the numbers are computed
 
-- **Throughput (Cloudflare, Fast.com):** `-c` parallel streams for `-d` seconds. The first 1.5 s is excluded so TCP slow-start doesn't drag the average down. Uploads use random (incompressible) payloads that double in size while requests finish in under a second, up to 16 MB.
-- **Idle latency:** one warm-up request to absorb DNS/TCP/TLS, then `--pings` sequential tiny requests on the kept-alive connection. Reported as the median; jitter is the mean absolute difference between consecutive samples. Cloudflare's `server-timing` processing time is subtracted.
-- **Loaded latency:** the same probe fired every 250 ms *while* the transfer runs. The gap between idle and loaded latency is your bufferbloat.
-- **M-Lab:** follows ndt7 rather than the engine above. Duration is fixed at about 10 s per direction by the server, latency/jitter come from the server's kernel TCP_INFO (`MinRTT`, `RTTVar`), and upload uses the server's `BytesReceived` because the client can only see what it buffered.
-- **Ookla:** whatever the binary reports. It always runs every test, so `-t` doesn't apply.
+- **Throughput (Cloudflare, Fast.com):** `-c` parallel HTTP/1.1 streams for `-d` seconds. The first 1.5 s is excluded so TCP slow-start does not drag the average down. Uploads send random, incompressible payloads that double in size while requests finish in under a second, up to 16 MB.
+- **Idle latency:** one warm-up request to absorb DNS, TCP and TLS, then `--pings` sequential tiny requests on the kept-alive connection. Reported as the median; jitter is the mean absolute difference between consecutive samples. Cloudflare's server-side processing time is subtracted.
+- **Loaded latency:** the same probe every 250 ms *while* the transfer runs. The gap between idle and loaded latency is your bufferbloat; the dashboard draws it live.
+- **M-Lab:** the ndt7 protocol fixes about 10 s per direction. Latency and jitter come from the server's kernel TCP_INFO (minimum RTT and RTT variance), loaded latency is the median RTT during each transfer, and upload uses the server's byte count because the client only knows what it buffered.
+- **Ookla:** whatever the binary reports; it always runs every measurement, so `-t` does not apply.
+- A measurement a provider cannot supply is skipped, left `null`, and explained in `note`.
 
-Because the methods differ, expect providers to disagree somewhat. Same-provider trends over time are more meaningful than cross-provider comparisons.
+Because the methods differ, expect providers to disagree somewhat. Same-provider trends over time mean more than cross-provider comparisons.
 
 ## Caveats
 
-- **Fast.com** uses an undocumented API; if Netflix changes the page, token extraction will fail with a clear error. Upload works by POSTing to the cache URLs, which isn't guaranteed.
-- **Proxies:** `HTTP(S)_PROXY` / `NO_PROXY` are honored. Note you'll then be measuring the proxy path, not your raw link.
-- **TestMy.net** only offers undocumented browser-side upload endpoints, so it's a browser launcher rather than a fragile scrape.
+- **Fast.com** depends on an undocumented API. If Netflix changes the page, the provider fails with a clear error until it is updated; please report it.
+- **Ookla** is only wrapped, never bundled. speedprobe never downloads their binary.
+- **Proxies:** `HTTP(S)_PROXY` and `NO_PROXY` are honoured, which means you measure the proxy path, not your raw link.
 
-## Testing without the internet
+## Development
 
-`mock_server.py` serves stand-ins for Cloudflare's endpoints and an ndt7 server:
+Everything runs offline against local stand-ins for each provider:
 
 ```bash
-export PORT=8765
-python mock_server.py $PORT &
-export SPEEDPROBE_CLOUDFLARE_URL=http://127.0.0.1:$PORT
-export SPEEDPROBE_MLAB_LOCATE_URL=http://127.0.0.1:$PORT/locate
-speedprobe run -p cf,mlab -d 3
+go test -race ./...
+go run ./cmd/speedprobe run -p cf -d 3
 ```
+
+Environment overrides point a provider at a local server: `SPEEDPROBE_CLOUDFLARE_URL`, `SPEEDPROBE_MLAB_LOCATE_URL`, `SPEEDPROBE_FAST_URL`, `SPEEDPROBE_FAST_API_URL`, `SPEEDPROBE_OOKLA_BIN`. See [internal/testserver](internal/testserver).
+
+Vocabulary is in [CONTEXT.md](CONTEXT.md); decisions are in [docs/adr](docs/adr). The original Python prototype is preserved at the `python-v0.1.0` tag. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+MIT.
