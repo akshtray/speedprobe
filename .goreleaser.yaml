@@ -32,9 +32,13 @@ builds:
       - { goos: freebsd, goarch: arm }
       - { goos: freebsd, goarch: arm64 }
 
+# Asset names carry no version so that GitHub's permanent alias
+#   https://github.com/akshtray/speedprobe/releases/latest/download/<name>
+# always points at the newest release. Versioned URLs keep working under
+# releases/download/vX.Y.Z/, and the version is inside every package.
 archives:
   - formats: [tar.gz]
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}"
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}"
     format_overrides:
       - goos: windows
         formats: [zip]
@@ -66,6 +70,7 @@ nfpms:
     description: Multi-provider internet speed test CLI and TUI
     license: MIT
     formats: [deb, rpm]
+    file_name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}"
     bindir: /usr/bin
     section: net
 
@@ -102,6 +107,8 @@ release:
   replace_existing_artifacts: true
   footer: |
     **Install:** `brew install akshtray/tap/speedprobe`, the `.deb`/`.rpm` below, or `go install github.com/akshtray/speedprobe/cmd/speedprobe@{{ .Tag }}`.
+    The same files are always available for the newest release under `https://github.com/akshtray/speedprobe/releases/latest/download/`.
+    Already installed? `speedprobe version --check` tells you whether this is newer and how to upgrade.
     The `checksums.txt` file is signed with Sigstore cosign (keyless); see the README for how to verify.
 
 snapshot:

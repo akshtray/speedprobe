@@ -11,20 +11,42 @@ Why it exists: Ookla's own install script fails on current Ubuntu (24.04) becaus
 | `ookla` (`speedtest`) | Wraps Ookla's official `speedtest` binary, which you install separately | latency, jitter, loaded latency, packet loss, download, upload, result URL |
 | `fast` (`netflix`), experimental | Native HTTP against Netflix Open Connect caches via fast.com's undocumented API | latency, jitter, loaded latency, download |
 
-**Data policy:** M-Lab publishes every test, including your IP address, as an open dataset ([their privacy page](https://www.measurementlab.net/privacy/)). Ookla stores results on speedtest.net. speedprobe itself makes no network connections other than to the providers you select: no update checks, no telemetry.
+**Data policy:** M-Lab publishes every test, including your IP address, as an open dataset ([their privacy page](https://www.measurementlab.net/privacy/)). Ookla stores results on speedtest.net. speedprobe itself makes no network connections other than to the providers you select: no automatic update checks, no telemetry. `speedprobe version --check` contacts GitHub only when you run it.
 
 ## Install
 
-The first release will be `v0.2.0`. Until then, build from source:
+**Homebrew** (macOS and Linux), with upgrades via `brew upgrade`:
+
+```bash
+brew install akshtray/tap/speedprobe
+```
+
+**Debian and Ubuntu.** The URL below always points at the newest release; run the same two lines again to upgrade. Use `linux_arm64` on 64-bit ARM (Raspberry Pi 4/5, ARM servers) or `linux_armv7` on older Pis.
+
+```bash
+curl -LO https://github.com/akshtray/speedprobe/releases/latest/download/speedprobe_linux_amd64.deb
+sudo apt install ./speedprobe_linux_amd64.deb
+```
+
+**Fedora, RHEL and friends:**
+
+```bash
+curl -LO https://github.com/akshtray/speedprobe/releases/latest/download/speedprobe_linux_amd64.rpm
+sudo dnf install ./speedprobe_linux_amd64.rpm
+```
+
+**Windows.** Download `speedprobe_windows_amd64.zip` (or `windows_arm64`) from the [latest release](https://github.com/akshtray/speedprobe/releases/latest), extract `speedprobe.exe`, and run it from a terminal or put its folder on `PATH`. The binary is not code-signed, so SmartScreen may ask once; "More info, Run anyway" clears it.
+
+**Any other system:** the matching `.tar.gz` from the latest release (Linux, macOS, FreeBSD), or with Go installed:
 
 ```bash
 go install github.com/akshtray/speedprobe/cmd/speedprobe@latest
 ```
 
-From `v0.2.0` on, each [release](https://github.com/akshtray/speedprobe/releases) also ships archives with checksums and signatures for Linux, macOS and Windows on amd64 and arm64, plus `.deb` and `.rpm` packages, and a Homebrew tap:
+**Staying current.** speedprobe never checks for updates on its own. When you want to know, ask:
 
 ```bash
-brew install akshtray/tap/speedprobe
+speedprobe version --check     # installed vs latest, and the upgrade command for this install
 ```
 
 To verify a download, check `checksums.txt` against the archive and the Sigstore signature on the checksums file:

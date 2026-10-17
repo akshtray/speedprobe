@@ -9,6 +9,7 @@ require (
 	github.com/m-lab/locate v0.19.0
 	github.com/m-lab/ndt7-client-go v0.10.1
 	github.com/spf13/cobra v1.10.2
+	golang.org/x/mod v0.42.0
 )
 
 require (

@@ -5,6 +5,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ import (
 	"github.com/akshtray/speedprobe/internal/output"
 	"github.com/akshtray/speedprobe/internal/provider"
 	"github.com/akshtray/speedprobe/internal/tui"
+	"github.com/akshtray/speedprobe/internal/update"
 )
 
 // Exit codes.
@@ -26,6 +28,7 @@ const (
 	ExitOK          = 0
 	ExitFailed      = 1 // at least one provider failed
 	ExitUsage       = 2
+	ExitOutdated    = 3 // `version --check`: a newer release exists
 	ExitInterrupted = 130
 )
 
@@ -110,8 +113,54 @@ func (a *App) rootCommand() *cobra.Command {
 	}
 	root.SetVersionTemplate("speedprobe {{.Version}}\n")
 	root.CompletionOptions.HiddenDefaultCmd = true
-	root.AddCommand(a.runCommand(), a.listCommand(), a.tuiCommand())
+	root.AddCommand(a.runCommand(), a.listCommand(), a.tuiCommand(), a.versionCommand())
 	return root
+}
+
+func (a *App) versionCommand() *cobra.Command {
+	var check, asJSON bool
+	cmd := &cobra.Command{
+		Use:   "version",
+		Short: "Print the version; with --check, compare it with the latest release",
+		Long:  "Prints the installed version. With --check it contacts GitHub (only then) to find the newest release and prints the upgrade command for how this copy was installed. Exit code 3 means a newer release exists.",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !check {
+				fmt.Fprintf(a.Stdout, "speedprobe %s\n", a.Version)
+				return nil
+			}
+			ctx, cancel := context.WithTimeout(cmd.Context(), 15*time.Second)
+			defer cancel()
+			st, err := update.Check(ctx, engine.NewHTTPClient("speedprobe/"+a.Version), a.Version)
+			if err != nil {
+				return fmt.Errorf("checking for the latest release: %w", err)
+			}
+			if asJSON {
+				enc := json.NewEncoder(a.Stdout)
+				enc.SetIndent("", "  ")
+				if err := enc.Encode(st); err != nil {
+					return err
+				}
+			} else {
+				fmt.Fprintf(a.Stdout, "installed  %s\nlatest     %s\n", st.Installed, st.Latest)
+				switch {
+				case st.Outdated:
+					fmt.Fprintf(a.Stdout, "status     a newer release is available\nupgrade    %s\n", st.Upgrade)
+				case st.Installed == st.Latest:
+					fmt.Fprintln(a.Stdout, "status     up to date")
+				default:
+					fmt.Fprintf(a.Stdout, "status     not a release build (%s install); latest release shown for reference\n", st.Method)
+				}
+			}
+			if st.Outdated {
+				return exitCode(ExitOutdated)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&check, "check", false, "contact GitHub for the latest release and the upgrade command")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "machine-readable output (with --check)")
+	return cmd
 }
 
 // interactive reports whether both stdin and stdout are terminals.

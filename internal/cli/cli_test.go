@@ -3,6 +3,8 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/akshtray/speedprobe/internal/provider/mlab"
 	"github.com/akshtray/speedprobe/internal/provider/ookla"
 	"github.com/akshtray/speedprobe/internal/testserver"
+	"github.com/akshtray/speedprobe/internal/update"
 )
 
 func run(t *testing.T, args ...string) (int, string, string) {
@@ -140,6 +143,42 @@ func TestMissingOoklaIsReportedNotRun(t *testing.T) {
 	code, out, _ = run(t, "list")
 	if code != ExitOK || !strings.Contains(out, "ookla") || !strings.Contains(out, "install Ookla") || !strings.Contains(out, "experimental") {
 		t.Fatalf("list: %d %s", code, out)
+	}
+}
+
+func TestVersionCheck(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/releases/tag/v9.9.9", http.StatusFound)
+	}))
+	defer srv.Close()
+	t.Setenv(update.EnvReleasesURL, srv.URL+"/releases")
+
+	code, out, _ := run(t, "version")
+	if code != ExitOK || strings.TrimSpace(out) != "speedprobe test" {
+		t.Fatalf("version: %d %q", code, out)
+	}
+	// "test" is not a release build: latest is shown, exit stays 0.
+	code, out, _ = run(t, "version", "--check")
+	if code != ExitOK || !strings.Contains(out, "latest     9.9.9") || !strings.Contains(out, "not a release build") {
+		t.Fatalf("version --check (dev): %d %q", code, out)
+	}
+	code, out, _ = run(t, "version", "--check", "--json")
+	var st update.Status
+	if code != ExitOK || json.Unmarshal([]byte(out), &st) != nil || st.Latest != "9.9.9" || st.Outdated {
+		t.Fatalf("version --check --json: %d %q", code, out)
+	}
+}
+
+func TestVersionCheckOutdatedExitsThree(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/releases/tag/v9.9.9", http.StatusFound)
+	}))
+	defer srv.Close()
+	t.Setenv(update.EnvReleasesURL, srv.URL+"/releases")
+	var out, errb bytes.Buffer
+	code := Main("0.2.1", []string{"version", "--check"}, &out, &errb)
+	if code != ExitOutdated || !strings.Contains(out.String(), "newer release") || !strings.Contains(out.String(), "upgrade    ") {
+		t.Fatalf("outdated: %d %q", code, out.String())
 	}
 }
 
