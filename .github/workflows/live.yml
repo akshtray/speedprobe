@@ -23,3 +23,8 @@ jobs:
         run: |
           ./speedprobe run -p cloudflare -d 3 -c 2 --pings 5 --json -q | tee cf.json
           jq -e '.[0].ok and .[0].download_mbps > 0 and .[0].upload_mbps > 0 and .[0].latency_ms > 0' cf.json
+      - name: M-Lab
+        if: always()
+        run: |
+          ./speedprobe run -p mlab --json -q | tee mlab.json
+          jq -e '.[0].ok and .[0].download_mbps > 0 and .[0].upload_mbps > 0 and .[0].latency_ms > 0' mlab.json

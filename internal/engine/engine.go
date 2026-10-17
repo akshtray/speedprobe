@@ -90,6 +90,7 @@ const (
 	ThroughputSample                  // live rate during a transfer; Phase/Mbps set
 	PhaseFinished                     // a measurement has ended
 	RunFinished                       // the run is over; Result set
+	Status                            // free-text progress, e.g. "locating server"; Message set
 )
 
 // Event is one item on the progress stream.
@@ -102,6 +103,7 @@ type Event struct {
 	Total    int
 	Ms       float64
 	Mbps     float64
+	Message  string
 	Result   *Result
 	Occurred time.Time
 }

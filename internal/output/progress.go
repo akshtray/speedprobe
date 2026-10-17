@@ -47,6 +47,8 @@ func (p *Progress) Handle(e engine.Event) {
 	switch e.Kind {
 	case engine.RunStarted:
 		p.status(e.Title + " starting…")
+	case engine.Status:
+		p.status(e.Title + " " + e.Message)
 	case engine.LatencySample:
 		p.status(fmt.Sprintf("%s latency %d/%d  %.1f ms", e.Title, e.Index, e.Total, e.Ms))
 	case engine.ThroughputSample:

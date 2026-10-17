@@ -2,9 +2,19 @@ module github.com/akshtray/speedprobe
 
 go 1.26
 
-require github.com/spf13/cobra v1.10.2
+require (
+	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
+	github.com/m-lab/locate v0.19.0
+	github.com/m-lab/ndt7-client-go v0.10.1
+	github.com/spf13/cobra v1.10.2
+)
 
 require (
+	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/spf13/pflag v1.0.9 // indirect
+	github.com/m-lab/go v0.1.76 // indirect
+	github.com/m-lab/ndt-server v0.25.0 // indirect
+	github.com/m-lab/tcp-info v1.9.0 // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
+	golang.org/x/net v0.49.0 // indirect
 )

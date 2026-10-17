@@ -10,7 +10,13 @@ import (
 
 	"github.com/akshtray/speedprobe/internal/engine"
 	"github.com/akshtray/speedprobe/internal/provider/cloudflare"
+	"github.com/akshtray/speedprobe/internal/provider/mlab"
 )
+
+// Config carries the provider-specific choices from the command line.
+type Config struct {
+	MLabServer int // index into M-Lab's nearest-first server list; 0 = closest
+}
 
 // UsageError means the user asked for something that does not exist.
 type UsageError struct{ Msg string }
@@ -22,11 +28,12 @@ type Registry struct {
 	list []engine.Provider
 }
 
-// New builds the registry. userAgent identifies speedprobe to providers.
-func New(userAgent string) *Registry {
-	client := engine.NewHTTPClient(userAgent)
+// New builds the registry. version identifies speedprobe to providers.
+func New(version string, cfg Config) *Registry {
+	client := engine.NewHTTPClient("speedprobe/" + version)
 	return &Registry{list: []engine.Provider{
 		cloudflare.New(client),
+		mlab.New(client, version, mlab.Config{ServerIndex: cfg.MLabServer}),
 	}}
 }
 

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/akshtray/speedprobe/internal/provider/cloudflare"
+	"github.com/akshtray/speedprobe/internal/provider/mlab"
 	"github.com/akshtray/speedprobe/internal/testserver"
 )
 
@@ -78,10 +79,37 @@ func TestUsageErrors(t *testing.T) {
 	}
 }
 
+func TestRunBothProvidersAgainstTestServers(t *testing.T) {
+	cf := testserver.Cloudflare()
+	defer cf.Close()
+	ml := testserver.MLab()
+	defer ml.Close()
+	t.Setenv(cloudflare.EnvBaseURL, cf.URL)
+	t.Setenv(mlab.EnvLocateURL, ml.URL+"/locate")
+
+	code, out, errOut := run(t, "run", "--all", "-d", "1", "-c", "2", "--pings", "3", "--json", "-q")
+	if code != ExitOK {
+		t.Fatalf("exit %d, stderr %q", code, errOut)
+	}
+	var results []map[string]any
+	if err := json.Unmarshal([]byte(out), &results); err != nil || len(results) != 2 {
+		t.Fatalf("results: %v\n%s", err, out)
+	}
+	if results[0]["provider"] != "cloudflare" || results[1]["provider"] != "mlab" {
+		t.Fatalf("order: %v %v", results[0]["provider"], results[1]["provider"])
+	}
+	if results[1]["ok"] != true || results[1]["download_mbps"].(float64) <= 0 {
+		t.Fatalf("mlab result: %v", results[1])
+	}
+}
+
 func TestListAndVersion(t *testing.T) {
 	code, out, _ := run(t, "list")
 	if code != ExitOK || !strings.Contains(out, "cloudflare") || !strings.Contains(out, "cf") {
 		t.Fatalf("list: %d %q", code, out)
+	}
+	if !strings.Contains(out, "mlab") || !strings.Contains(out, "publishes every test") {
+		t.Fatalf("list must show mlab and its data policy: %q", out)
 	}
 	code, out, _ = run(t, "--version")
 	if code != ExitOK || strings.TrimSpace(out) != "speedprobe test" {

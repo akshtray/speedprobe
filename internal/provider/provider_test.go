@@ -9,12 +9,21 @@ import (
 )
 
 func TestResolve(t *testing.T) {
-	r := New("test")
-	for _, tokens := range [][]string{{"cloudflare"}, {"cf"}, {"CF"}, {"1"}, {"all"}, {"cf,cloudflare"}, {"cf", "1"}} {
+	r := New("test", Config{})
+	for _, tokens := range [][]string{{"cloudflare"}, {"cf"}, {"CF"}, {"1"}, {"cf,cloudflare"}, {"cf", "1"}} {
 		ps, err := r.Resolve(tokens)
 		if err != nil || len(ps) != 1 || ps[0].Info().Name != "cloudflare" {
 			t.Errorf("Resolve(%v) = %v, %v", tokens, ps, err)
 		}
+	}
+	for _, tokens := range [][]string{{"all"}, {"mlab,cf"}, {"ndt7", "1"}, {"2,1"}} {
+		ps, err := r.Resolve(tokens)
+		if err != nil || len(ps) != 2 {
+			t.Errorf("Resolve(%v) = %v, %v", tokens, ps, err)
+		}
+	}
+	if ps, _ := r.Resolve([]string{"mlab,cf"}); ps[0].Info().Name != "mlab" {
+		t.Errorf("order must follow the command line, got %s first", ps[0].Info().Name)
 	}
 	_, err := r.Resolve([]string{"nope"})
 	var ue *UsageError

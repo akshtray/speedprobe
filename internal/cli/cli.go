@@ -33,13 +33,11 @@ type App struct {
 	Version string
 	Stdout  io.Writer
 	Stderr  io.Writer
-	reg     *provider.Registry
 }
 
 // Main runs the CLI with args (excluding the program name) and returns the exit code.
 func Main(version string, args []string, stdout, stderr io.Writer) int {
 	app := &App{Version: version, Stdout: stdout, Stderr: stderr}
-	app.reg = provider.New("speedprobe/" + version)
 	root := app.rootCommand()
 	root.SetArgs(args)
 	root.SetOut(stdout)
@@ -88,6 +86,7 @@ type runFlags struct {
 	repeat       int
 	interval     float64
 	quiet        bool
+	mlabServer   int
 }
 
 func (a *App) rootCommand() *cobra.Command {
@@ -136,6 +135,7 @@ func (a *App) runCommand() *cobra.Command {
 	fl.IntVar(&f.repeat, "repeat", 1, "rounds to run; 0 = until Ctrl-C")
 	fl.Float64Var(&f.interval, "interval", 300, "seconds between rounds")
 	fl.BoolVarP(&f.quiet, "quiet", "q", false, "no progress output on stderr")
+	fl.IntVar(&f.mlabServer, "mlab-server", 0, "index into M-Lab's nearest-server list (0 = closest)")
 	return cmd
 }
 
@@ -145,22 +145,23 @@ func (a *App) listCommand() *cobra.Command {
 		Short: "Show providers and whether each is usable on this machine",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return output.ProviderList(a.Stdout, a.reg.All())
+			return output.ProviderList(a.Stdout, provider.New(a.Version, provider.Config{}).All())
 		},
 	}
 }
 
 func (a *App) execute(ctx context.Context, f runFlags) error {
+	reg := provider.New(a.Version, provider.Config{MLabServer: f.mlabServer})
 	tokens := f.providers
 	if f.all {
 		tokens = append([]string{"all"}, tokens...)
 	}
-	providers, err := a.reg.Resolve(tokens)
+	providers, err := reg.Resolve(tokens)
 	if err != nil {
 		return err
 	}
 	if len(providers) == 0 {
-		providers = a.reg.All()[:1]
+		providers = reg.All()[:1]
 	}
 	measurements, err := provider.ParseMeasurements(f.measurements)
 	if err != nil {
@@ -181,7 +182,7 @@ func (a *App) execute(ctx context.Context, f runFlags) error {
 			if err := output.JSON(a.Stdout, results, f.repeat == 1); err != nil {
 				return err
 			}
-		} else if err := output.Table(a.Stdout, results, a.reg.Title, time.Now()); err != nil {
+		} else if err := output.Table(a.Stdout, results, reg.Title, time.Now()); err != nil {
 			return err
 		}
 		if f.log != "" {
