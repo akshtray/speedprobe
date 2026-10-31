@@ -3,7 +3,7 @@ module github.com/akshtray/speedprobe
 go 1.26.0
 
 require (
-	charm.land/bubbletea/v2 v2.1.0
+	charm.land/bubbletea/v2 v2.1.1
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/m-lab/locate v0.19.0
